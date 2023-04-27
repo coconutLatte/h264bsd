@@ -149,8 +149,7 @@ u32 h264bsdInit(storage_t *pStorage, u32 noOutputReordering)
 
 ------------------------------------------------------------------------------*/
 
-u32 h264bsdDecode(storage_t *pStorage, u8 *byteStrm, u32 len, u32 picId,
-    u32 *readBytes)
+u32 h264bsdDecode(storage_t *pStorage, u8 *byteStrm, u32 len, u32 picId, u32 *readBytes)
 {
 
 /* Variables */

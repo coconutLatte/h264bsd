@@ -78,10 +78,18 @@
 
 ------------------------------------------------------------------------------*/
 
-u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
-    u32 *readBytes)
-{
+void printData(u8 *data, u32 len) {
+    int i = 0;
 
+    for (i=0; i<len; i++) {
+        printf("%02X ", data[i]);
+    }
+    printf("\n");
+}
+
+u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData, u32 *readBytes)
+{
+//    EPRINT("1");
 /* Variables */
 
     u32 i, tmp;
@@ -94,15 +102,18 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
 
 /* Code */
 
+//    EPRINT("2");
     ASSERT(pByteStream);
     ASSERT(len);
     ASSERT(len < BYTE_STREAM_ERROR);
     ASSERT(pStrmData);
+//    EPRINT("3");
 
     /* byte stream format if starts with 0x000001 or 0x000000 */
     if (len > 3 && pByteStream[0] == 0x00 && pByteStream[1] == 0x00 &&
         (pByteStream[2]&0xFE) == 0x00)
     {
+//        EPRINT("4");
         /* search for NAL unit start point, i.e. point after first start code
          * prefix in the stream */
         zeroCount = byteCount = 2;
@@ -110,6 +121,7 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
         /*lint -e(716) while(1) used consciously */
         while (1)
         {
+//            EPRINT("41");
             byte = *readPtr++;
             byteCount++;
 
@@ -117,6 +129,7 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
             {
                 /* no start code prefix found -> error */
                 *readBytes = len;
+                EPRINT("err1");
                 return(HANTRO_NOK);
             }
 
@@ -134,8 +147,10 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
          * or end of stream and ignore possible trailing zero bytes */
         zeroCount = 0;
         /*lint -e(716) while(1) used consciously */
+//        EPRINT("5");
         while (1)
         {
+//            EPRINT("51");
             byte = *readPtr++;
             byteCount++;
             if (!byte)
@@ -143,6 +158,8 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
 
             if ( (byte == 0x03) && (zeroCount == 2) )
             {
+                printf("00 00 03\n");
+//                printData(pByteStream, len);
                 hasEmulation = HANTRO_TRUE;
             }
 
@@ -167,16 +184,19 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
             }
 
         }
+//        EPRINT("6");
     }
     /* separate NAL units as input -> just set stream params */
     else
     {
+//        EPRINT("7");
         initByteCount = 0;
         zeroCount = 0;
         pStrmData->strmBuffSize = len;
         hasEmulation = HANTRO_TRUE;
     }
 
+//    EPRINT("8");
     pStrmData->pStrmBuffStart    = pByteStream + initByteCount;
     pStrmData->pStrmCurrPos      = pStrmData->pStrmBuffStart;
     pStrmData->bitPosInWord      = 0;
@@ -187,25 +207,32 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
 
     if (invalidStream)
     {
+        EPRINT("err2");
+        printData(pByteStream, len);
         return(HANTRO_NOK);
     }
 
     /* remove emulation prevention bytes before rbsp processing */
     if (hasEmulation)
     {
+//        EPRINT("A");
         tmp = pStrmData->strmBuffSize;
         readPtr = writePtr = pStrmData->pStrmBuffStart;
         zeroCount = 0;
         for (i = tmp; i--;)
         {
+//            EPRINT("B");
             if ((zeroCount == 2) && (*readPtr == 0x03))
             {
+//                EPRINT("C");
                 /* emulation prevention byte shall be followed by one of the
                  * following bytes: 0x00, 0x01, 0x02, 0x03. This implies that
                  * emulation prevention 0x03 byte shall not be the last byte
                  * of the stream. */
-                if ( (i == 0) || (*(readPtr+1) > 0x03) )
+                if ( (i == 0) || (*(readPtr+1) > 0x03) ) {
+                    EPRINT("err3");
                     return(HANTRO_NOK);
+                }
 
                 /* do not write emulation prevention byte */
                 readPtr++;
@@ -215,8 +242,10 @@ u32 h264bsdExtractNalUnit(u8 *pByteStream, u32 len, strmData_t *pStrmData,
             {
                 /* NAL unit shall not contain byte sequences 0x000000,
                  * 0x000001 or 0x000002 */
-                if ( (zeroCount == 2) && (*readPtr <= 0x02) )
+                if ( (zeroCount == 2) && (*readPtr <= 0x02) ) {
+                    EPRINT("err4");
                     return(HANTRO_NOK);
+                }
 
                 if (*readPtr == 0)
                     zeroCount++;

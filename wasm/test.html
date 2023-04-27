@@ -5,7 +5,8 @@
     <title>h.264bsd test</title>
 </head>
 <body>
-    <input type="file" id="file" name="file" />
+<!--    <input type="file" id="file" name="file" />-->
+    <button id="btn">连接websocket</button>
     <span id="fps_display"></span>
     <br/>
 
@@ -47,14 +48,14 @@
                     canvas.height = croppingParams.height;
                 }
                 break;
-            case 'noInput':
-                var copy = new Uint8Array(buf);
-                decoder.postMessage({
-                    'type': 'queueInput',
-                    'data': copy.buffer,
-                    'flush': false
-                }, [copy.buffer]);
-                break;
+            // case 'noInput':
+            //     var copy = new Uint8Array(buf);
+            //     decoder.postMessage({
+            //         'type': 'queueInput',
+            //         'data': copy.buffer,
+            //         'flush': false
+            //     }, [copy.buffer]);
+            //     break;
             case 'pictureReady':
                 display.drawNextOutputPicture(
                     message.width,
@@ -110,7 +111,94 @@
             reader.readAsArrayBuffer(f);
         }
 
-        document.getElementById('file').addEventListener('change', handleFileSelect, false);
+        // document.getElementById('file').addEventListener('change', handleFileSelect, false);
+
+        function containsBytes(byteArray) {
+            // 检查是否包含这个字节序列：0x00, 0x00, 0x1c, 0x02, 0xa5, 0x87, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00, 0xe0
+            const targetBytes = [0x00, 0x00, 0x1c, 0x02, 0xa5, 0x87, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00, 0xe0];
+
+            for (let i = 0; i < byteArray.length; i++) {
+                if (byteArray[i] === targetBytes[0]) {
+                    let j = 1;
+                    while (j < targetBytes.length && i + j < byteArray.length && byteArray[i + j] === targetBytes[j]) {
+                        j++;
+                    }
+                    if (j === targetBytes.length) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function dumpVideoData(arrayBuffer, fileName) {
+            // 1. Convert ArrayBuffer to Blob
+            const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+
+            // 2. Create URL object with Blob URL
+            const url = URL.createObjectURL(blob);
+
+            // 3. Create link element with URL object
+            const link = document.createElement('a');
+            link.href = url;
+
+            // 4. Set download attribute to desired file name
+            link.download = fileName;
+
+            // 5. Trigger click event on link element to download file
+            document.body.appendChild(link);
+            link.click();
+
+            // 6. Clean up and recycle resources
+            URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+        }
+
+        document.getElementById("btn").addEventListener("click", function () {
+            let ws = new WebSocket("ws://192.168.56.107:1234/ws")
+
+            ws.addEventListener("open", function () {
+                console.log('ws opened')
+            })
+
+            let count = 1;
+            ws.addEventListener("message", function (event) {
+                var reader = new FileReader();
+
+                // Closure to capture the file information.
+                reader.onload = function(e) {
+                    buf = new Uint8Array(e.target.result);
+
+                    var copy = new Uint8Array(buf)
+
+                    console.log(copy)
+                    console.log(count)
+
+
+                    // if (count === 4) {
+                    //     dumpVideoData(copy, "4")
+                    // }
+                    count++
+                    console.log("")
+                    console.log("")
+
+                    decoder.postMessage({
+                        'type' : 'queueInput',
+                        'data' : copy.buffer,
+                        'flush' : false
+                    }, [copy.buffer]);
+
+                    if (!playing) {
+                        setInterval(updateFpsCount, 1000);
+
+                        console.log('Starting encode loop');
+                        playing = true;
+                    }
+                };
+
+                reader.readAsArrayBuffer(event.data);
+            })
+        })
     </script>
 </body>
 </html>
